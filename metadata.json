@@ -1,0 +1,6 @@
+{
+  "name": "MC Flashcards",
+  "description": "Aplicación retro de tarjetas didácticas inspirada en Minecraft con modo estudio, exámenes con calificación, batallas contra el Creeper Boss y efectos de sonido.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
