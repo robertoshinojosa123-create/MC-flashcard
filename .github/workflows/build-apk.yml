@@ -25,13 +25,13 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Setup Android SDK
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Accept Licenses & Setup SDK
+      - name: Accept Licenses & Install Android SDK 35 and 36
         run: |
           yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-35" "platform-tools" || true
+          sdkmanager --install "platforms;android-36" "platforms;android-35" "build-tools;36.0.0" "build-tools;35.0.0" "platform-tools" || true
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -40,39 +40,43 @@ jobs:
 
       - name: Setup Environment and Keystore
         run: |
-          touch .env
-          echo "GEMINI_API_KEY=" >> .env
+          # 1. Configurar archivos de variables de entorno para Secrets Plugin
+          echo "GEMINI_API_KEY=" > .env
           echo "GEMINI_API_KEY=" > .env.example
+          
+          # 2. Generar o restaurar debug.keystore exactamente donde app/build.gradle.kts lo busca
           if [ -f "debug.keystore.base64" ]; then
             base64 -d debug.keystore.base64 > debug.keystore || true
           fi
-          if [ ! -f "debug.keystore" ]; then
+          if [ ! -s "debug.keystore" ]; then
             keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
 
       - name: Build Debug APK
         run: |
-          gradle :app:assembleDebug --stacktrace --no-daemon --no-configuration-cache
+          gradle :app:assembleDebug --stacktrace --info --no-daemon --no-configuration-cache
 
-      - name: List generated APKs
+      - name: Locate and Verify APK
         run: |
-          ls -la app/build/outputs/apk/debug/ || find . -name "*.apk"
+          mkdir -p apk_output
+          find app/build/outputs/apk -name "*.apk" -exec cp {} apk_output/ \;
+          ls -la apk_output/
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MC-Flashcards-APK
-          path: app/build/outputs/apk/debug/*.apk
+          name: MC-Flashcards-Debug-APK
+          path: apk_output/*.apk
           retention-days: 30
 
       - name: Create GitHub Release with APK
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest-apk
-          name: "MC Flashcards APK (Descarga Directa)"
-          body: "Archivo APK listo para instalar en cualquier teléfono Android."
-          files: app/build/outputs/apk/debug/*.apk
+          tag_name: v1.0.0
+          name: "MC Flashcards v1.0 (Descarga Directa APK)"
+          body: "Descarga el archivo APK directamente a tu móvil e instálalo."
+          files: apk_output/*.apk
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
